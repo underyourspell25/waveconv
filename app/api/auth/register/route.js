@@ -1,6 +1,9 @@
 // app/api/auth/register/route.js
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export async function POST(request) {
   try {
@@ -21,26 +24,38 @@ export async function POST(request) {
       );
     }
 
+    // Vérifier si l'utilisateur existe déjà
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    if (existingUser) {
+      return NextResponse.json(
+        { error: 'Un compte avec cet email existe déjà' },
+        { status: 400 }
+      );
+    }
+
     // Hash du mot de passe
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // IMPORTANT: Pour l'instant, on stocke juste en mémoire
-    // En production, tu auras besoin d'une vraie base de données
-    
-    console.log('🔐 Nouveau compte créé (simulation):');
-    console.log(`👤 Nom: ${name}`);
-    console.log(`📧 Email: ${email}`);
-    console.log(`🔒 Mot de passe hashé: ${hashedPassword.substring(0, 20)}...`);
+    // Créer l'utilisateur
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name,
+        password: hashedPassword,
+      }
+    });
 
-    // Simulation de sauvegarde réussie
-    // TODO: Remplacer par une vraie DB (Prisma, MongoDB, etc.)
-    
+    console.log('🔐 Nouveau compte créé:', user.email);
+
     return NextResponse.json({
       message: 'Compte créé avec succès',
       user: {
-        id: Date.now().toString(), // ID temporaire
-        email,
-        name
+        id: user.id,
+        email: user.email,
+        name: user.name
       }
     });
 
@@ -50,5 +65,7 @@ export async function POST(request) {
       { error: 'Erreur lors de la création du compte' },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

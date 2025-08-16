@@ -1,5 +1,8 @@
 // app/api/auth/check-email/route.js
 import { NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export async function POST(request) {
   try {
@@ -12,19 +15,12 @@ export async function POST(request) {
       );
     }
 
-    // Pour l'instant, on dit que tous les emails n'existent pas
-    // (force la création de compte via Google ou mot de passe)
-    // Tu peux modifier cette logique plus tard avec une vraie DB
-    
-    // Emails "existants" pour test (optionnel)
-    const existingEmails = [
-      'test@example.com',
-      'demo@waveconv.com'
-    ];
+    // Vérifier si l'utilisateur existe en base
+    const user = await prisma.user.findUnique({
+      where: { email }
+    });
 
-    const exists = existingEmails.includes(email.toLowerCase());
-
-    return NextResponse.json({ exists });
+    return NextResponse.json({ exists: !!user });
 
   } catch (error) {
     console.error('Erreur check-email:', error);
@@ -32,5 +28,7 @@ export async function POST(request) {
       { error: 'Erreur serveur' },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
