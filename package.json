@@ -1,0 +1,51 @@
+{
+  "name": "convertflow-saas",
+  "version": "1.0.0",
+  "description": "ConvertFlow - Convertisseur audio universel pour Telegram",
+  "main": "server.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "old-server": "node server.js",
+    "old-dev": "nodemon server.js"
+  },
+  "keywords": [
+    "audio",
+    "video",
+    "conversion",
+    "telegram",
+    "oga",
+    "ffmpeg",
+    "saas",
+    "nextjs",
+    "react"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@auth/prisma-adapter": "^2.10.0",
+    "@prisma/client": "^6.14.0",
+    "@tailwindcss/postcss": "^4.1.12",
+    "bcryptjs": "^3.0.2",
+    "express": "^4.18.2",
+    "fluent-ffmpeg": "^2.1.2",
+    "multer": "^1.4.5-lts.1",
+    "next": "^15.4.6",
+    "next-auth": "^4.24.11",
+    "prisma": "^6.14.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "resend": "^6.0.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "eslint": "^8",
+    "eslint-config-next": "15.4.6",
+    "nodemon": "^3.0.2",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.12"
+  }
+}
