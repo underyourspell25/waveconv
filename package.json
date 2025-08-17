@@ -1,13 +1,14 @@
 {
   "name": "convertflow-saas",
   "version": "1.0.0",
-  "description": "ConvertFlow - Convertisseur audio universel pour Telegram",
+  "description": "WaveConv - Convertisseur audio universel pour Telegram",
   "main": "server.js",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
+    "postinstall": "prisma generate",
     "old-server": "node server.js",
     "old-dev": "nodemon server.js"
   },
@@ -20,7 +21,8 @@
     "ffmpeg",
     "saas",
     "nextjs",
-    "react"
+    "react",
+    "waveconv"
   ],
   "author": "",
   "license": "MIT",
