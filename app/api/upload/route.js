@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
+import { v2 as cloudinary } from 'cloudinary';
 import path from 'path';
+
+// Configuration Cloudinary
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 // Configuration Supabase
 const supabase = createClient(
@@ -10,10 +18,9 @@ const supabase = createClient(
 );
 
 export async function POST(request) {
-    console.log('🚀 === DÉBUT CONVERSION API ===');
+    console.log('🚀 === DÉBUT CONVERSION API (Cloudinary) ===');
     
     try {
-        // Vérifier que la requête contient bien un fichier
         const contentType = request.headers.get('content-type');
         console.log('📋 Content-Type:', contentType);
         
@@ -50,54 +57,57 @@ export async function POST(request) {
             }, { status: 400 });
         }
 
-        // Initialiser FFmpeg WebAssembly
-        const { FFmpeg } = await import('@ffmpeg/ffmpeg');
-        const { fetchFile } = await import('@ffmpeg/util');
-        
-        const ffmpeg = new FFmpeg();
-        
-        console.log('⚡ Initialisation FFmpeg WebAssembly...');
-        await ffmpeg.load();
-        console.log('✅ FFmpeg WebAssembly chargé');
-
-        // Convertir le fichier en buffer
+        // Convertir en buffer pour Cloudinary
         const bytes = await file.arrayBuffer();
-        const inputBuffer = new Uint8Array(bytes);
+        const buffer = Buffer.from(bytes);
+        const base64 = buffer.toString('base64');
+        const dataURI = `data:${file.type};base64,${base64}`;
+
+        // Générer un nom unique
+        const uniqueName = `${uuidv4()}-${Date.now()}`;
         
-        // Générer noms de fichiers
-        const uniqueName = `${uuidv4()}-${Date.now()}${fileExt}`;
-        const outputFileName = `${path.parse(uniqueName).name}.oga`;
+        console.log('☁️ Upload et conversion via Cloudinary...');
+
+        // Upload et conversion avec Cloudinary
+        const uploadResult = await new Promise((resolve, reject) => {
+            cloudinary.uploader.upload(dataURI, {
+                resource_type: 'video', // Pour les fichiers audio/vidéo
+                public_id: uniqueName,
+                format: 'oga', // Format de sortie
+                audio_codec: 'opus',
+                bit_rate: '64k',
+                audio_frequency: 16000,
+                flags: 'mono'
+            }, (error, result) => {
+                if (error) {
+                    console.error('❌ Erreur Cloudinary:', error);
+                    reject(error);
+                } else {
+                    console.log('✅ Conversion Cloudinary réussie');
+                    resolve(result);
+                }
+            });
+        });
+
+        console.log('🔗 URL Cloudinary:', uploadResult.secure_url);
+
+        // Télécharger le fichier converti depuis Cloudinary
+        console.log('⬇️ Téléchargement du fichier converti...');
+        const convertedResponse = await fetch(uploadResult.secure_url);
         
-        console.log('🔄 Début conversion vers .oga...');
-
-        // Écrire le fichier d'entrée dans FFmpeg
-        await ffmpeg.writeFile(`input${fileExt}`, inputBuffer);
-
-        // Exécuter la conversion
-        await ffmpeg.exec([
-            '-i', `input${fileExt}`,
-            '-c:a', 'libopus',
-            '-b:a', '64k',
-            '-ac', '1',
-            '-ar', '16000',
-            '-compression_level', '10',
-            '-frame_duration', '60',
-            '-application', 'voip',
-            'output.oga'
-        ]);
-
-        console.log('✅ Conversion terminée');
-
-        // Lire le fichier de sortie
-        const outputData = await ffmpeg.readFile('output.oga');
-        const outputBuffer = new Uint8Array(outputData);
+        if (!convertedResponse.ok) {
+            throw new Error('Erreur lors du téléchargement du fichier converti');
+        }
+        
+        const convertedBuffer = await convertedResponse.arrayBuffer();
+        const outputFileName = `${uniqueName}.oga`;
 
         console.log('☁️ Upload vers Supabase Storage...');
 
         // Upload vers Supabase Storage
         const { data: uploadData, error: uploadError } = await supabase.storage
             .from('audio-files')
-            .upload(`converted/${outputFileName}`, outputBuffer, {
+            .upload(`converted/${outputFileName}`, convertedBuffer, {
                 contentType: 'audio/ogg',
                 upsert: true
             });
@@ -115,13 +125,21 @@ export async function POST(request) {
             .getPublicUrl(uploadData.path);
 
         const downloadUrl = publicUrlData.publicUrl;
-        console.log('🔗 URL publique:', downloadUrl);
+        console.log('🔗 URL publique Supabase:', downloadUrl);
+
+        // Nettoyer Cloudinary (optionnel)
+        try {
+            await cloudinary.uploader.destroy(uniqueName, { resource_type: 'video' });
+            console.log('🗑️ Fichier Cloudinary nettoyé');
+        } catch (cleanupError) {
+            console.warn('⚠️ Erreur nettoyage Cloudinary:', cleanupError.message);
+        }
 
         // Retourner la réponse JSON
         const response = {
             success: true,
             download_url: downloadUrl,
-            message: 'Conversion réussie',
+            message: 'Conversion réussie via Cloudinary',
             originalName: file.name,
             outputName: outputFileName,
             supabasePath: uploadData.path
@@ -139,14 +157,12 @@ export async function POST(request) {
 
         let errorMessage = 'Erreur lors de la conversion du fichier';
         
-        if (error.message.includes('Invalid data found')) {
-            errorMessage = 'Format de fichier invalide ou corrompu';
-        } else if (error.message.includes('FFmpeg')) {
-            errorMessage = `Erreur de conversion: ${error.message}`;
+        if (error.message.includes('Invalid signature')) {
+            errorMessage = 'Erreur de configuration Cloudinary';
         } else if (error.message.includes('upload')) {
-            errorMessage = `Erreur de sauvegarde: ${error.message}`;
-        } else if (error.message.includes('load')) {
-            errorMessage = 'Erreur d\'initialisation du convertisseur';
+            errorMessage = 'Erreur lors de l\'upload du fichier';
+        } else if (error.message.includes('format')) {
+            errorMessage = 'Format de fichier non supporté';
         }
 
         const errorResponse = {
