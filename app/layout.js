@@ -93,7 +93,7 @@ export const metadata = {
   
   // Verification (ajoutez si vous avez ces services)
   verification: {
-    google: '', // Google Search Console verification code
+    google: 'tc72q0YVqb5HWFDQFZV5xLBs-ZwIlHc1WhJEufExsXs', // Votre code Google
     yandex: '', // Yandex verification code  
     yahoo: '',  // Yahoo verification code
     other: {
@@ -118,6 +118,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
+        {/* Google Search Console Verification */}
+        <meta name="google-site-verification" content="tc72q0YVqb5HWFDQFZV5xLBs-ZwIlHc1WhJEufExsXs" />
+        
         {/* Favicon et icônes */}
         <link rel="icon" href="https://res.cloudinary.com/dtwkc40qa/image/upload/v1755344329/w_1_copie_p0px1u.png" />
         <link rel="shortcut icon" href="https://res.cloudinary.com/dtwkc40qa/image/upload/v1755344329/w_1_copie_p0px1u.png" />
