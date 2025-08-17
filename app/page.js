@@ -169,27 +169,58 @@ export default function WaveConv() {
           onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
           >
             <img 
-              src="https://res.cloudinary.com/dtwkc40qa/image/upload/v1755344329/w_1_copie_p0px1u.png"
-              alt="WaveConv Favicon"
+              src="https://res.cloudinary.com/dtwkc40qa/image/upload/f_auto,q_auto,w_64/v1755344329/w_1_copie_p0px1u.png"
+              alt="WaveConv"
               style={{
                 height: '32px',
                 width: '32px',
                 objectFit: 'contain',
                 borderRadius: '6px',
-                boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
+                boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
+                // Fallback en cas d'erreur de chargement
+                backgroundColor: '#8b5cf6',
+                border: '2px solid rgba(139, 92, 246, 0.3)'
+              }}
+              onError={(e) => {
+                // Fallback si l'image ne charge pas
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'flex';
               }}
             />
             
+            {/* Fallback logo text si image ne charge pas */}
+            <div style={{
+              display: 'none',
+              width: '32px',
+              height: '32px',
+              backgroundColor: '#8b5cf6',
+              borderRadius: '6px',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontWeight: 'bold',
+              fontSize: '16px',
+              boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
+            }}>
+              W
+            </div>
+            
             <img 
-              src="https://res.cloudinary.com/dtwkc40qa/image/upload/v1755327666/waveconv_sa9cof.png"
-              alt="WaveConv Logo"
+              src="https://res.cloudinary.com/dtwkc40qa/image/upload/f_auto,q_auto,w_200/v1755327666/waveconv_sa9cof.png"
+              alt="WaveConv"
               style={{
                 height: '28px',
                 width: 'auto',
                 objectFit: 'contain',
-                '@media (max-width: 480px)': {
-                  display: 'none'
-                }
+                display: window.innerWidth > 480 ? 'block' : 'none'
+              }}
+              onError={(e) => {
+                // Fallback texte si logo texte ne charge pas
+                e.target.style.display = 'none';
+                const fallbackText = document.createElement('span');
+                fallbackText.innerHTML = 'WaveConv';
+                fallbackText.style.cssText = 'color: white; font-weight: 700; font-size: 18px; display: ' + (window.innerWidth > 480 ? 'inline' : 'none');
+                e.target.parentNode.appendChild(fallbackText);
               }}
             />
           </div>
