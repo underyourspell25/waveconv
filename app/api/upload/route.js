@@ -73,7 +73,7 @@ export async function POST(request) {
             cloudinary.uploader.upload(dataURI, {
                 resource_type: 'video', // Pour les fichiers audio/vidéo
                 public_id: uniqueName,
-                format: 'oga', // Format de sortie
+                format: 'ogg', // Format de sortie (OGG au lieu de OGA)
                 audio_codec: 'opus',
                 bit_rate: '64k',
                 audio_frequency: 16000,
@@ -100,7 +100,7 @@ export async function POST(request) {
         }
         
         const convertedBuffer = await convertedResponse.arrayBuffer();
-        const outputFileName = `${uniqueName}.oga`;
+        const outputFileName = `${uniqueName}.ogg`;
 
         console.log('☁️ Upload vers Supabase Storage...');
 
