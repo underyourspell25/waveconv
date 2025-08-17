@@ -16,6 +16,43 @@ export default function WaveConv() {
   const [authMode, setAuthMode] = useState('signin');
   const fileInputRef = useRef(null);
 
+  // Fonction pour forcer le téléchargement
+  const forceDownload = async (downloadUrl, filename) => {
+    try {
+      console.log('🔄 Téléchargement forcé...', downloadUrl);
+      
+      // Fetch le fichier
+      const response = await fetch(downloadUrl);
+      if (!response.ok) {
+        throw new Error('Erreur lors du téléchargement');
+      }
+      
+      // Convertir en blob
+      const blob = await response.blob();
+      
+      // Créer un lien de téléchargement temporaire
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename || 'telegram-voice.ogg';
+      
+      // Forcer le clic
+      document.body.appendChild(link);
+      link.click();
+      
+      // Nettoyer
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      console.log('✅ Téléchargement forcé réussi');
+      
+    } catch (error) {
+      console.error('❌ Erreur téléchargement forcé:', error);
+      // Fallback : ouvrir dans un nouvel onglet
+      window.open(downloadUrl, '_blank');
+    }
+  };
+
   const handleFileSelect = (file) => {
     setSelectedFile(file);
   };
@@ -112,16 +149,20 @@ export default function WaveConv() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '0 2rem'
+          padding: '0 1rem',
+          '@media (min-width: 768px)': {
+            padding: '0 2rem'
+          }
         }}>
           
           {/* Logo */}
           <div style={{ 
             display: 'flex', 
             alignItems: 'center', 
-            gap: '0.75rem',
+            gap: '0.5rem',
             cursor: 'pointer',
-            transition: 'transform 0.2s ease'
+            transition: 'transform 0.2s ease',
+            minWidth: 'fit-content'
           }}
           onClick={() => window.location.reload()}
           onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
@@ -131,10 +172,10 @@ export default function WaveConv() {
               src="https://res.cloudinary.com/dtwkc40qa/image/upload/v1755344329/w_1_copie_p0px1u.png"
               alt="WaveConv Favicon"
               style={{
-                height: '40px',
-                width: '40px',
+                height: '32px',
+                width: '32px',
                 objectFit: 'contain',
-                borderRadius: '8px',
+                borderRadius: '6px',
                 boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
               }}
             />
@@ -143,25 +184,32 @@ export default function WaveConv() {
               src="https://res.cloudinary.com/dtwkc40qa/image/upload/v1755327666/waveconv_sa9cof.png"
               alt="WaveConv Logo"
               style={{
-                height: '38px',
+                height: '28px',
                 width: 'auto',
-                objectFit: 'contain'
+                objectFit: 'contain',
+                '@media (max-width: 480px)': {
+                  display: 'none'
+                }
               }}
             />
           </div>
 
-          {/* Nav Links */}
+          {/* Nav Links - Hidden on mobile */}
           <div style={{ 
-            display: 'flex', 
-            gap: '2rem', 
-            alignItems: 'center'
+            display: 'none',
+            gap: '1.5rem', 
+            alignItems: 'center',
+            '@media (min-width: 768px)': {
+              display: 'flex'
+            }
           }}>
             <a href="#features" style={{ 
               color: '#c4b5fd', 
               textDecoration: 'none', 
               fontWeight: 500,
               transition: 'color 0.3s ease',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              fontSize: '0.9rem'
             }}
             onClick={(e) => {
               e.preventDefault();
@@ -177,7 +225,8 @@ export default function WaveConv() {
               textDecoration: 'none', 
               fontWeight: 500,
               transition: 'color 0.3s ease',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              fontSize: '0.9rem'
             }}
             onClick={(e) => {
               e.preventDefault();
@@ -193,7 +242,8 @@ export default function WaveConv() {
               textDecoration: 'none', 
               fontWeight: 500,
               transition: 'color 0.3s ease',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              fontSize: '0.9rem'
             }}
             onClick={(e) => {
               e.preventDefault();
@@ -208,7 +258,8 @@ export default function WaveConv() {
               color: '#c4b5fd', 
               textDecoration: 'none', 
               fontWeight: 500,
-              transition: 'color 0.3s ease'
+              transition: 'color 0.3s ease',
+              fontSize: '0.9rem'
             }}
             onMouseEnter={(e) => e.target.style.color = '#8b5cf6'}
             onMouseLeave={(e) => e.target.style.color = '#c4b5fd'}
@@ -217,11 +268,24 @@ export default function WaveConv() {
             </a>
           </div>
 
-          {/* Auth Buttons */}
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          {/* Auth Buttons - Responsive */}
+          <div style={{ 
+            display: 'flex', 
+            gap: '0.5rem', 
+            alignItems: 'center',
+            minWidth: 'fit-content'
+          }}>
             {session ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.5rem'
+              }}>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.5rem'
+                }}>
                   <img 
                     src={session.user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user.name || session.user.email)}&background=8b5cf6&color=fff`}
                     alt={session.user.name}
@@ -232,7 +296,14 @@ export default function WaveConv() {
                       border: '2px solid rgba(139, 92, 246, 0.5)'
                     }}
                   />
-                  <span style={{ color: '#c4b5fd', fontSize: '0.9rem' }}>
+                  <span style={{ 
+                    color: '#c4b5fd', 
+                    fontSize: '0.85rem',
+                    display: 'none',
+                    '@media (min-width: 480px)': {
+                      display: 'inline'
+                    }
+                  }}>
                     {session.user.name?.split(' ')[0] || session.user.email?.split('@')[0]}
                   </span>
                 </div>
@@ -246,7 +317,8 @@ export default function WaveConv() {
                     fontWeight: 500,
                     padding: '0.5rem',
                     cursor: 'pointer',
-                    transition: 'color 0.3s ease'
+                    transition: 'color 0.3s ease',
+                    fontSize: '0.85rem'
                   }}
                   onMouseEnter={(e) => e.target.style.color = '#8b5cf6'}
                   onMouseLeave={(e) => e.target.style.color = '#c4b5fd'}
@@ -263,9 +335,14 @@ export default function WaveConv() {
                     background: 'none',
                     border: 'none',
                     fontWeight: 500,
-                    padding: '0.5rem 1rem',
+                    padding: '0.5rem 0.75rem',
                     cursor: 'pointer',
-                    transition: 'color 0.3s ease'
+                    transition: 'color 0.3s ease',
+                    fontSize: '0.85rem',
+                    display: 'none',
+                    '@media (min-width: 480px)': {
+                      display: 'block'
+                    }
                   }}
                   onMouseEnter={(e) => e.target.style.color = '#8b5cf6'}
                   onMouseLeave={(e) => e.target.style.color = '#c4b5fd'}
@@ -278,12 +355,14 @@ export default function WaveConv() {
                   style={{
                     background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
                     color: 'white',
-                    padding: '0.75rem 1.5rem',
-                    borderRadius: '8px',
+                    padding: '0.6rem 1rem',
+                    borderRadius: '6px',
                     border: 'none',
                     fontWeight: 600,
                     cursor: 'pointer',
-                    transition: 'all 0.3s ease'
+                    transition: 'all 0.3s ease',
+                    fontSize: '0.85rem',
+                    whiteSpace: 'nowrap'
                   }}
                   onMouseEnter={(e) => {
                     e.target.style.transform = 'translateY(-1px)';
@@ -294,7 +373,8 @@ export default function WaveConv() {
                     e.target.style.boxShadow = 'none';
                   }}
                 >
-                  Get Started
+                  <span style={{ display: 'none', '@media (min-width: 480px)': { display: 'inline' } }}>Get Started</span>
+                  <span style={{ display: 'inline', '@media (min-width: 480px)': { display: 'none' } }}>Sign up</span>
                 </button>
               </>
             )}
@@ -643,21 +723,22 @@ export default function WaveConv() {
                 </div>
                 
                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                  <a
-                    href={result.download_url}
+                  <button
+                    onClick={() => forceDownload(result.download_url, result.outputName)}
                     style={{
                       background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
                       color: 'white',
                       padding: '1rem 2rem',
                       borderRadius: '12px',
-                      textDecoration: 'none',
+                      border: 'none',
                       fontWeight: 700,
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '0.75rem',
                       transition: 'all 0.3s ease',
                       boxShadow: '0 8px 25px rgba(139, 92, 246, 0.3)',
-                      fontSize: '1.1rem'
+                      fontSize: '1.1rem',
+                      cursor: 'pointer'
                     }}
                     onMouseEnter={(e) => {
                       e.target.style.transform = 'translateY(-2px)';
@@ -670,7 +751,7 @@ export default function WaveConv() {
                   >
                     <span style={{ fontSize: '1.2rem' }}>📥</span>
                     Download Voice Message
-                  </a>
+                  </button>
                   
                   <button
                     onClick={resetForm}
