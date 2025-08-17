@@ -1,23 +1,22 @@
 import { NextResponse } from 'next/server';
 import ffmpeg from 'fluent-ffmpeg';
-import path from 'path';
-import fs from 'fs';
+import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 
-// Configuration des dossiers
-const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
-const CONVERTED_DIR = path.join(process.cwd(), 'converted');
-
-// Créer les dossiers s'ils n'existent pas
-[UPLOAD_DIR, CONVERTED_DIR].forEach(dir => {
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-        console.log('📁 Dossier créé:', dir);
-    }
-});
+// Configuration Supabase
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 export async function POST(request) {
     console.log('🚀 === DÉBUT CONVERSION API ===');
+    
+    let tempInputPath = null;
+    let tempOutputPath = null;
     
     try {
         // Vérifier que la requête contient bien un fichier
@@ -57,25 +56,29 @@ export async function POST(request) {
             }, { status: 400 });
         }
 
-        // Sauvegarder le fichier
+        // Utiliser le dossier temporaire du système
+        const tempDir = os.tmpdir();
+        console.log('📁 Dossier temporaire:', tempDir);
+
+        // Sauvegarder le fichier dans /tmp (disponible sur Vercel)
         console.log('💾 Sauvegarde du fichier...');
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
         const uniqueName = `${uuidv4()}-${Date.now()}${fileExt}`;
-        const inputPath = path.join(UPLOAD_DIR, uniqueName);
+        tempInputPath = path.join(tempDir, uniqueName);
         
-        fs.writeFileSync(inputPath, buffer);
-        console.log('✅ Fichier sauvegardé:', inputPath);
+        fs.writeFileSync(tempInputPath, buffer);
+        console.log('✅ Fichier sauvegardé:', tempInputPath);
 
         // Préparer la conversion
         const outputFileName = `${path.parse(uniqueName).name}.oga`;
-        const outputPath = path.join(CONVERTED_DIR, outputFileName);
+        tempOutputPath = path.join(tempDir, outputFileName);
         
-        console.log('🔄 Début conversion vers:', outputPath);
+        console.log('🔄 Début conversion vers:', tempOutputPath);
 
         // Conversion avec FFmpeg
         await new Promise((resolve, reject) => {
-            const conversion = ffmpeg(inputPath)
+            const conversion = ffmpeg(tempInputPath)
                 .toFormat('oga')
                 .audioCodec('libopus')
                 .audioBitrate('64k')
@@ -104,33 +107,52 @@ export async function POST(request) {
                     reject(new Error(`Erreur de conversion: ${err.message}`));
                 });
 
-            // Sauvegarder vers le fichier de sortie
-            conversion.save(outputPath);
+            // Sauvegarder vers le fichier de sortie temporaire
+            conversion.save(tempOutputPath);
         });
 
         // Vérifier que le fichier de sortie existe
-        if (!fs.existsSync(outputPath)) {
+        if (!fs.existsSync(tempOutputPath)) {
             console.log('❌ Fichier de sortie non créé');
             throw new Error('Le fichier converti n\'a pas été créé');
         }
 
-        console.log('✅ Fichier converti créé:', outputPath);
+        console.log('✅ Fichier converti créé:', tempOutputPath);
 
-        // Supprimer le fichier original
-        try {
-            fs.unlinkSync(inputPath);
-            console.log('🗑️ Fichier original supprimé');
-        } catch (err) {
-            console.warn('⚠️ Impossible de supprimer le fichier original:', err.message);
+        // Upload vers Supabase Storage
+        console.log('☁️ Upload vers Supabase Storage...');
+        const convertedBuffer = fs.readFileSync(tempOutputPath);
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('audio-files')
+            .upload(`converted/${outputFileName}`, convertedBuffer, {
+                contentType: 'audio/ogg',
+                upsert: true
+            });
+
+        if (uploadError) {
+            console.error('❌ Erreur upload Supabase:', uploadError);
+            throw new Error(`Erreur upload: ${uploadError.message}`);
         }
+
+        console.log('✅ Fichier uploadé sur Supabase:', uploadData.path);
+
+        // Générer URL publique
+        const { data: publicUrlData } = supabase.storage
+            .from('audio-files')
+            .getPublicUrl(uploadData.path);
+
+        const downloadUrl = publicUrlData.publicUrl;
+        console.log('🔗 URL publique:', downloadUrl);
 
         // Retourner la réponse JSON
         const response = {
             success: true,
-            download_url: `/api/download/${outputFileName}`,
+            download_url: downloadUrl,
             message: 'Conversion réussie',
             originalName: file.name,
-            outputName: outputFileName
+            outputName: outputFileName,
+            supabasePath: uploadData.path
         };
 
         console.log('🎉 Réponse à envoyer:', response);
@@ -142,9 +164,6 @@ export async function POST(request) {
         console.error('💥 === ERREUR CONVERSION ===');
         console.error('Message:', error.message);
         console.error('Stack:', error.stack);
-        
-        // Nettoyer en cas d'erreur
-        // (le fichier d'entrée sera nettoyé automatiquement)
 
         let errorMessage = 'Erreur lors de la conversion du fichier';
         
@@ -156,6 +175,8 @@ export async function POST(request) {
             errorMessage = 'Erreur de permissions sur le serveur';
         } else if (error.message.includes('FFmpeg')) {
             errorMessage = `Erreur de conversion: ${error.message}`;
+        } else if (error.message.includes('upload')) {
+            errorMessage = `Erreur de sauvegarde: ${error.message}`;
         }
 
         const errorResponse = {
@@ -167,5 +188,20 @@ export async function POST(request) {
         console.log('❌ Réponse d\'erreur:', errorResponse);
 
         return NextResponse.json(errorResponse, { status: 500 });
+
+    } finally {
+        // Nettoyer les fichiers temporaires
+        try {
+            if (tempInputPath && fs.existsSync(tempInputPath)) {
+                fs.unlinkSync(tempInputPath);
+                console.log('🗑️ Fichier input temporaire supprimé');
+            }
+            if (tempOutputPath && fs.existsSync(tempOutputPath)) {
+                fs.unlinkSync(tempOutputPath);
+                console.log('🗑️ Fichier output temporaire supprimé');
+            }
+        } catch (cleanupError) {
+            console.warn('⚠️ Erreur nettoyage:', cleanupError.message);
+        }
     }
 }
